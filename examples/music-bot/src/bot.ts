@@ -8,11 +8,13 @@ import {
 } from '@discordjs/voice';
 import { Track } from './music/track';
 import { MusicSubscription } from './music/subscription';
+var axios = require('axios');
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const { token } = require('../auth.json');
 
 const client = new Discord.Client({ intents: ['GUILD_VOICE_STATES', 'GUILD_MESSAGES', 'GUILDS'] });
+
 
 client.on('ready', () => console.log('Ready!'));
 
@@ -72,9 +74,25 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 	let subscription = subscriptions.get(interaction.guildId);
 
 	if (interaction.commandName === 'play') {
-		await interaction.defer();
+		//await interaction.defer();
 		// Extract the video URL from the command
-		const url = interaction.options.get('song')!.value! as string;
+
+		let url = interaction.options.get('song')!.value! as string;
+		if (!url.startsWith("http")) {
+			//youtubeSearch.search.list();
+			// let results = youtubeSearch(url, opts, function(err, results) {
+			// 	if(err) return console.log(err);
+			// 	console.log(results);
+			// 	return results;
+			//   });
+			// console.log(results);
+			await axios.get('https://www.googleapis.com/youtube/v3/search?key=AIzaSyCjvkLmBcLlIOojNfMTJtpKa0dP13fEDe8&type=video&part=snippet&maxResults=1&q=' + url)
+				.then((response: { data: { items: { id: { videoId: string; }; }[]; }; }) => {
+					//console.log(response);
+					url = "https://www.youtube.com/watch?v=" + response.data.items[0].id.videoId;
+				});
+			console.log(url);
+		}
 
 		// If a connection to the guild doesn't already exist and the user is in a voice channel, join that channel
 		// and create a subscription.
@@ -124,7 +142,8 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 			});
 			// Enqueue the track and reply a success message to the user
 			subscription.enqueue(track);
-			await interaction.followUp(`Enqueued **${track.title}**`);
+			await interaction.reply(` **${track.title}** (${url}) added to queue`);
+			//await interaction.followUp(`Enqueued **${track.title}**`);
 		} catch (error) {
 			console.warn(error);
 			await interaction.reply('Failed to play track, please try again later!');

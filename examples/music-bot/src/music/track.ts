@@ -52,6 +52,7 @@ export class Track implements TrackData {
 					q: '',
 					f: 'bestaudio[ext=webm+acodec=opus+asr=48000]/bestaudio',
 					r: '100K',
+					cookies: 'youtube.com_cookies.txt',
 				},
 				{ stdio: ['ignore', 'pipe', 'ignore'] },
 			);
