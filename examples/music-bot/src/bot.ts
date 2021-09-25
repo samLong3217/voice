@@ -15,6 +15,8 @@ const { token } = require('../auth.json');
 
 const client = new Discord.Client({ intents: ['GUILD_VOICE_STATES', 'GUILD_MESSAGES', 'GUILDS'] });
 
+const youtubeKey = "AIzaSyCjvkLmBcLlIOojNfMTJtpKa0dP13fEDe8";
+
 
 client.on('ready', () => console.log('Ready!'));
 
@@ -78,20 +80,33 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 		// Extract the video URL from the command
 
 		let url = interaction.options.get('song')!.value! as string;
+		let songList: string[] = []; // used for playlists
 		if (!url.startsWith("http")) {
-			//youtubeSearch.search.list();
-			// let results = youtubeSearch(url, opts, function(err, results) {
-			// 	if(err) return console.log(err);
-			// 	console.log(results);
-			// 	return results;
-			//   });
-			// console.log(results);
-			await axios.get('https://www.googleapis.com/youtube/v3/search?key=AIzaSyCjvkLmBcLlIOojNfMTJtpKa0dP13fEDe8&type=video&part=snippet&maxResults=1&q=' + url)
+			await axios.get('https://www.googleapis.com/youtube/v3/search?key=' + youtubeKey + '&type=video&part=snippet&maxResults=1&q=' + url)
 				.then((response: { data: { items: { id: { videoId: string; }; }[]; }; }) => {
-					//console.log(response);
+					console.log("URL is = " + url);
+					if (response.data.items.length == 0) {
+						interaction.reply("Could not find a video called **" + url + "**, try **deez** instead. haha gotem");
+						return;
+					}
 					url = "https://www.youtube.com/watch?v=" + response.data.items[0].id.videoId;
 				});
 			console.log(url);
+		} else if (url.startsWith("https://www.youtube.com/playlist?list=")) {
+			let playlistId = url.split("=")[1] as string;
+			
+			await axios.get('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=500&playlistId=' + playlistId +'&key=' + youtubeKey)
+				.then((response: { data: { items: { snippet: { resourceId: { videoId: string; }; }; }[]; }; }) => {
+					if (response.data.items.length == 0) {
+						interaction.reply("Could not find playlist: " + url);
+						return;
+					}
+					
+					response.data.items.forEach(item => {
+						songList.push("https://www.youtube.com/watch?v=" + item.snippet.resourceId.videoId);
+						
+					});
+				});
 		}
 
 		// If a connection to the guild doesn't already exist and the user is in a voice channel, join that channel
@@ -113,7 +128,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 
 		// If there is no subscription, tell the user they need to join a channel.
 		if (!subscription) {
-			await interaction.followUp('Join a voice channel and then try that again!');
+			await interaction.reply('Join a voice channel and then try that again!');
 			return;
 		}
 
@@ -122,31 +137,41 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 			await entersState(subscription.voiceConnection, VoiceConnectionStatus.Ready, 20e3);
 		} catch (error) {
 			console.warn(error);
-			await interaction.followUp('Failed to join voice channel within 20 seconds, please try again later!');
+			await interaction.reply('Failed to join voice channel within 20 seconds, please try again later!');
 			return;
 		}
 
 		try {
-			// Attempt to create a Track from the user's video URL
-			const track = await Track.from(url, {
-				onStart() {
-					interaction.followUp({ content: 'Now playing!', ephemeral: true }).catch(console.warn);
-				},
-				onFinish() {
-					interaction.followUp({ content: 'Now finished!', ephemeral: true }).catch(console.warn);
-				},
-				onError(error) {
-					console.warn(error);
-					interaction.followUp({ content: `Error: ${error.message}`, ephemeral: true }).catch(console.warn);
-				},
-			});
-			// Enqueue the track and reply a success message to the user
-			subscription.enqueue(track);
-			await interaction.reply(` **${track.title}** (${url}) added to queue`);
-			//await interaction.followUp(`Enqueued **${track.title}**`);
+			if (songList.length == 0) {
+				songList.push(url);
+			}
+			for (const songUrl of songList){
+				// Attempt to create a Track from the user's video URL
+				const track = await Track.from(songUrl, {
+					onStart() {
+						interaction.reply({ content: 'Now playing!', ephemeral: true }).catch(console.warn);
+					},
+					onFinish() {
+						interaction.reply({ content: 'Now finished!', ephemeral: true }).catch(console.warn);
+					},
+					onError(error) {
+						console.warn(error);
+						interaction.reply({ content: `Error: ${error.message}`, ephemeral: true }).catch(console.warn);
+					},
+				}, interaction);
+				// Enqueue the track and reply a success message to the user
+				subscription.enqueue(track);
+				if (songList.length == 1) {
+					interaction.channel?.send(` **${track.title}** added to queue`);
+				}
+			}
+			if (songList.length > 1) {
+				interaction.channel?.send(` **${songList.length}** songs added to queue`);
+			}
+			
 		} catch (error) {
 			console.warn(error);
-			await interaction.reply('Failed to play track, please try again later!');
+			interaction.channel?.send('Failed to play track, please try again later!');
 		}
 	} else if (interaction.commandName === 'skip') {
 		if (subscription) {

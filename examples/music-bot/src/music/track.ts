@@ -1,6 +1,7 @@
 import { getInfo } from 'ytdl-core';
 import { AudioResource, createAudioResource, demuxProbe } from '@discordjs/voice';
 import { raw as ytdl } from 'youtube-dl-exec';
+import { Interaction } from 'discord.js';
 
 /**
  * This is the data required to create a Track object
@@ -11,6 +12,7 @@ export interface TrackData {
 	onStart: () => void;
 	onFinish: () => void;
 	onError: (error: Error) => void;
+	interaction: Interaction;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -31,13 +33,15 @@ export class Track implements TrackData {
 	public readonly onStart: () => void;
 	public readonly onFinish: () => void;
 	public readonly onError: (error: Error) => void;
+	public readonly interaction: Interaction;
 
-	private constructor({ url, title, onStart, onFinish, onError }: TrackData) {
+	private constructor({ url, title, onStart, onFinish, onError, interaction }: TrackData) {
 		this.url = url;
 		this.title = title;
 		this.onStart = onStart;
 		this.onFinish = onFinish;
 		this.onError = onError;
+		this.interaction = interaction;
 	}
 
 	/**
@@ -73,6 +77,8 @@ export class Track implements TrackData {
 						.catch(onError);
 				})
 				.catch(onError);
+
+				this.interaction.channel?.send('Now playing: **' + this.title + '** (' + this.url + ')');
 		});
 	}
 
@@ -83,7 +89,7 @@ export class Track implements TrackData {
 	 * @param methods Lifecycle callbacks
 	 * @returns The created Track
 	 */
-	public static async from(url: string, methods: Pick<Track, 'onStart' | 'onFinish' | 'onError'>): Promise<Track> {
+	public static async from(url: string, methods: Pick<Track, 'onStart' | 'onFinish' | 'onError'>, interaction: Interaction): Promise<Track> {
 		const info = await getInfo(url);
 
 		// The methods are wrapped so that we can ensure that they are only called once.
@@ -106,6 +112,7 @@ export class Track implements TrackData {
 			title: info.videoDetails.title,
 			url,
 			...wrappedMethods,
+			interaction,
 		});
 	}
 }
