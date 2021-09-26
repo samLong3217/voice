@@ -56,10 +56,11 @@ export class Track implements TrackData {
 					q: '',
 					f: 'bestaudio[ext=webm+acodec=opus+asr=48000]/bestaudio',
 					r: '100K',
-					cookies: 'youtube.com_cookies.txt',
+					cookies: 'cookies.txt'
 				},
 				{ stdio: ['ignore', 'pipe', 'ignore'] },
 			);
+			console.log("BAZINGA BAZONGA GIVE MT HE CUR DIR = " + __dirname);
 			if (!process.stdout) {
 				reject(new Error('No stdout'));
 				return;
@@ -90,7 +91,13 @@ export class Track implements TrackData {
 	 * @returns The created Track
 	 */
 	public static async from(url: string, methods: Pick<Track, 'onStart' | 'onFinish' | 'onError'>, interaction: Interaction): Promise<Track> {
-		const info = await getInfo(url);
+	 	let info = { videoDetails: {title: "A sussy baka video (probably cum zone)"}}
+		try {
+			info = await getInfo(url,);
+		} catch (error) { // mature video, extract it seperately 
+			
+		}
+		
 
 		// The methods are wrapped so that we can ensure that they are only called once.
 		const wrappedMethods = {

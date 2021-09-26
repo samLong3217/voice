@@ -161,7 +161,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
 				}, interaction);
 				// Enqueue the track and reply a success message to the user
 				subscription.enqueue(track);
-				if (songList.length == 1) {
+				if (songList.length == 1 && subscription.queue.length > 1) {
 					interaction.channel?.send(` **${track.title}** added to queue`);
 				}
 			}
